@@ -1,0 +1,30 @@
+<?php
+
+// Fix for large file sizes borrowed from http://www.adammalone.net/post/dealing-large-filesizes-drupal
+
+/**
+ * Implements hook_install()
+ */
+function file_sync_install() {
+  db_change_field('file_managed', 'filesize', 'filesize',
+    array('type' => 'int', 'size' => 'big',));
+}
+/**
+ * Implements hook_uninstall()
+ */
+function file_sync_uninstall() {
+  db_change_field('file_managed', 'filesize', 'filesize',
+    array('type' => 'int', 'size' => 'normal',));
+}
+/**
+ * Implements hook_schema_alter
+ */
+function file_sync_schema_alter(&$schema) {
+  if (isset($schema['file_managed'])) {
+    $schema['file_managed']['fields']['filesize'] = array(
+      'type' => 'int',
+      'size' => 'big',
+    );
+  }
+}
+

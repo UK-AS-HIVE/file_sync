@@ -1,0 +1,8 @@
+name = File Sync
+description = Checks file system and updates file_managed with any missing files
+dependencies[] = media
+dependencies[] = libraries
+package = Media
+core = 7.x
+files[] = file_sync.module
+

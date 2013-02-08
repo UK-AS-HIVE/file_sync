@@ -1,0 +1,68 @@
+<?php
+
+// lifted from http://www.php.net/manual/en/function.glob.php#106595 on 2/13/2012
+if (!function_exists('file_sync_glob_recursive'))
+{
+  function file_sync_glob_recursive($pattern, $flags, $exclude_dirs = array())
+  {
+    $files = glob($pattern, $flags);
+    foreach (glob(dirname($pattern).'/*', GLOB_ONLYDIR|GLOB_NOSORT) as $dir)
+    {
+      if (!in_array($dir, $exclude_dirs))
+        $files = array_merge($files, file_sync_glob_recursive($dir . '/' . basename($pattern), $flags));
+    }
+    return $files;
+  }
+}
+
+function file_sync_rescan_files_directory() {
+  file_sync_rescan_files_subdirectory('video');
+}
+
+function file_sync_rescan_files_subdirectory($subdir) {
+  //$files = file_sync_glob_recursive(variable_get('file_public_path', conf_path() . '/files') . '/' . $subdir . "/{*.jpg,*.jpeg,*.png,*.tif,*.tiff,*.mpg,*.mpeg,*.mov,*.avi,*.wmv,*.mp3,*.aac,*.ogg,*.obj,*.mtl}", GLOB_BRACE, array('sites/default/files/tiles', 'sites/default/files/media-youtube', 'sites/default/files/styles'));
+  $files = file_scan_directory('public://' . $subdir, '/^.*\.(jpg|jpeg|png|tif|tiff|mpg|mpeg|mov|avi|wmv|mp3|aac|ogg|obj|mtl|webm|ogv|mp4)$/');
+  //drupal_set_message('Files to import: <pre>' . print_r($files,true) .'</pre>');
+
+  foreach ($files as $file) {
+    //drupal_set_message($file->filename . ' - ' . file_get_mimetype($file->uri));
+    $query = db_query('select count(*) from {file_managed} where uri=:uri', array(':uri' => $file->uri));
+    $result = $query->fetchField();
+    if ($result == 0) {
+      try {
+        // populate the file!
+        $file->filemime = file_get_mimetype($file->uri);
+        $file->status = FILE_STATUS_PERMANENT;
+        file_save($file);
+        watchdog('file_sync', 'Added untracked file ' . $file->uri);
+      } catch (Exception $e) {
+        print('Exception with file ' . $file->uri . "\n" . $e->getMessage() . "\n");
+      }
+    }
+  }
+
+  
+
+  /*foreach ($files as $file) {
+    try {
+      //$file_obj = media_parse_to_file(str_replace('/var/www/media-dev/sites/default/files/hollywood/', 'http://localhost:8888/', urlencode($file)));
+      $file_obj = media_parse_to_file(str_replace('/var/www/media-dev/sites/default/files/hollywood/', 'public://hollywood/', $file));
+      //$context['results']['success'][] = $file;
+      if (!$image_in_message) {
+        // @todo Is this load step really necessary? When there's time, test
+        //   this, and either remove it, or comment why it's needed.
+        $loaded_file = file_load($file_obj->fid);
+        $image_in_message = file_view_file($loaded_file, 'media_preview');
+      }
+    }
+    catch (Exception $e) {
+      watchdog('error', $file . " Reason: " . $e->getMessage());
+    }
+  }*/
+}
+
+if (function_exists('drush_print')) {
+  // executing within a drush scr call, automatically invoke this
+  file_sync_rescan_files_directory();
+}
+
